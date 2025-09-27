@@ -5,192 +5,216 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Pace Tracker – Live Run</title>
   <style>
-    body {
-      font-family: "Segoe UI", sans-serif;
-      margin: 2rem;
-      background-color: #f8f8f8;
-      color: #333;
-    }
-
-    header, footer {
-      text-align: center;
-      margin-bottom: 2rem;
-    }
-
-    main {
-      max-width: 600px;
-      margin: auto;
-      background: #fff;
-      padding: 2rem;
-      border-radius: 10px;
-      box-shadow: 0 4px 14px rgba(0,0,0,0.1);
-    }
-
-    h2 {
-      text-align: center;
-      margin-bottom: 1rem;
-    }
-
-    .status {
-      text-align: center;
-      padding: 1rem;
-      font-size: 1.4rem;
-      font-weight: bold;
-      border-radius: 6px;
-      margin-bottom: 1.5rem;
-    }
-
-    .status.on-pace {
-      background-color: #e0f7e9;
-      color: #2e7d32;
-    }
-
-    .status.too-slow {
-      background-color: #fff3cd;
-      color: #d18b00;
-    }
-
-    .status.too-fast {
-      background-color: #ffebee;
-      color: #c62828;
-    }
-
-    .metrics {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 1rem;
-    }
-
-    .metrics div {
-      text-align: center;
-      flex: 1;
-    }
-
-    iframe {
-      width: 100%;
-      height: 200px;
-      margin-top: 2rem;
-      border: none;
-      border-radius: 8px;
-    }
-
-    #volumeIndicator {
-      margin-top: 1rem;
-      text-align: center;
-      font-size: 1rem;
-      opacity: 0.6;
-    }
+    body { font-family: "Segoe UI", system-ui, Roboto, Arial; margin: 2rem; background: #f8f8f8; color: #333; }
+    header, footer { text-align: center; margin-bottom: 1.25rem; }
+    main { max-width: 760px; margin: auto; background: #fff; padding: 1.25rem; border-radius: 12px; box-shadow: 0 6px 18px rgba(0,0,0,.08); }
+    h2 { text-align: center; margin: .25rem 0 1rem; }
+    .status { text-align: center; padding: .9rem; font-size: 1.15rem; font-weight: 700; border-radius: 8px; margin-bottom: 1rem; }
+    .on-pace { background: #e7fbef; color: #1b7a38; }
+    .too-slow { background: #fff5d9; color: #a66a00; }
+    .too-fast { background: #ffe6e8; color: #ba2a2a; }
+    .metrics { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: .75rem; }
+    .metrics div { text-align: center; }
+    .mono { font-family: ui-monospace, Menlo, Consolas, monospace; }
+    .meter { height: 10px; border: 1px solid #ddd; border-radius: 999px; overflow: hidden; }
+    .meter > div { height:100%; width:0%; background: linear-gradient(90deg,#0ea5e9,#22c55e); transition: width .35s; }
+    #controls { display:flex; gap:8px; justify-content: space-between; align-items: center; margin-top: 10px; }
+    button { padding: 8px 12px; border-radius: 8px; border: 1px solid #222; background: #111; color: #fff; cursor: pointer; }
+    #player { width: 100%; height: 220px; border-radius: 8px; margin-top: .8rem; }
+    .small { opacity: .75; font-size: .9rem; text-align: center; margin-top: .5rem; }
   </style>
 </head>
 <body>
-
-<header>
-  <h1>🏃‍♀️ Live Pace Tracker</h1>
-</header>
+<header><h1>🏃‍♀️ Live Pace Tracker</h1></header>
 
 <main>
   <h2>Stay On Pace!</h2>
 
-  <div id="paceZone" class="status on-pace">Loading pace...</div>
+  <div id="paceZone" class="status on-pace">Waiting for GPS…</div>
 
   <div class="metrics">
-    <div>
-      <strong>Goal Pace</strong>
-      <div id="goalPace">–</div>
-    </div>
-    <div>
-      <strong>Current Pace</strong>
-      <div id="currentPace">–</div>
-    </div>
-    <div>
-      <strong>Target Adjustment</strong>
-      <div id="adjustedPace">–</div>
-    </div>
+    <div><strong>Goal Pace</strong><div id="goalPace">–</div></div>
+    <div><strong>Current Pace</strong><div id="currentPace">–</div></div>
+    <div><strong>Catch-up Target</strong><div id="needPace">–</div></div>
   </div>
 
-  <div id="volumeIndicator">Music Volume: –</div>
+  <div class="metrics">
+    <div><strong>± Window</strong><div id="tolShow">10s</div></div>
+    <div><strong>Accuracy</strong><div id="acc">– m</div></div>
+    <div><strong>Volume</strong><div id="volNow">–%</div></div>
+  </div>
 
-  <iframe
-    id="ytPlayer"
-    src="https://www.youtube.com/embed/videoseries?list=YOUR_PLAYLIST_ID&enablejsapi=1"
-    allow="autoplay"
-    allowfullscreen
-  ></iframe>
+  <div class="meter"><div id="bar"></div></div>
+
+  <div id="controls">
+    <button id="btnPlay">Play</button>
+    <button id="btnPause">Pause</button>
+  </div>
+
+  <div id="player"></div>
+  <div class="small">Tip: keep your screen awake; tap anywhere to unlock audio if needed. Poor GPS accuracy (&gt; 25 m) is ignored.</div>
 </main>
 
-<footer>
-  <p>&copy; 2025 Pace Tracker</p>
-</footer>
+<footer><p>© 2025 Pace Tracker</p></footer>
 
+<!-- YouTube IFrame API -->
+<script src="https://www.youtube.com/iframe_api"></script>
 <script>
-  // Helper: format seconds as m:ss
-  function secToMinStr(sec) {
-    const m = Math.floor(sec / 60);
-    const s = Math.round(sec % 60);
-    return `${m}:${s.toString().padStart(2, "0")}`;
+  // ---------- utils ----------
+  const $ = id => document.getElementById(id);
+  function getParams(){
+    const p = new URLSearchParams(location.search);
+    return {
+      pace: p.get('pace') || '10:00',
+      dist: parseFloat(p.get('dist') || '1.0'),
+      range: parseInt(p.get('range') || '10', 10),
+      youtube: (p.get('youtube') || '').trim(),
+      baseVol: parseInt(p.get('baseVol') || '60', 10),
+    };
   }
+  function parsePace(str){
+    str = (str||'').trim();
+    if(str.includes(':')){ const [m, s] = str.split(':').map(x => parseInt(x,10)||0); return m*60 + s; }
+    const n = parseFloat(str); return isFinite(n) ? n : 600; // fallback 10:00
+  }
+  function fmt(sec){ if(!isFinite(sec) || sec>1e8) return '—'; const s=Math.round(sec), m=Math.floor(s/60), r=s%60; return `${m}:${String(r).padStart(2,'0')}`; }
+  function haversine(lat1,lon1,lat2,lon2){ const R=6371000, toRad=x=>x*Math.PI/180; const dLat=toRad(lat2-lat1), dLon=toRad(lon2-lon1);
+    const a=Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2; return 2*R*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+  }
+  class EMA{ constructor(a=0.30){ this.a=a; this.v=0; this.init=false; } update(x){ if(!isFinite(x)) return this.v; if(!this.init){ this.v=x; this.init=true; return x; } this.v=this.a*x+(1-this.a)*this.v; return this.v; } }
+  function decideZone(p, need, tol){ if(p < need - tol) return 'TOO_FAST'; if(p > need + tol) return 'TOO_SLOW'; return 'IN_RANGE'; }
+  function playlistId(u){ if(!u) return null; if(u.includes('list=')){ const m=u.match(/[?&]list=([\\w-]+)/); return m? m[1] : null; } return u; }
 
-  // Update UI elements with backend data
-  function updateUI(data) {
-    const paceZone = document.getElementById("paceZone");
-    const currentPace = document.getElementById("currentPace");
-    const adjustedPace = document.getElementById("adjustedPace");
-    const goalPace = document.getElementById("goalPace");
-    const volumeIndicator = document.getElementById("volumeIndicator");
-
-    goalPace.textContent = secToMinStr(data.goalPaceSec);
-    currentPace.textContent = secToMinStr(data.currentPaceSec);
-    adjustedPace.textContent = secToMinStr(data.adjustedPaceSec);
-
-    // Pace status UI
-    if (data.paceStatus === "too-slow") {
-      paceZone.textContent = "Too Slow 🐢";
-      paceZone.className = "status too-slow";
-    } else if (data.paceStatus === "too-fast") {
-      paceZone.textContent = "Too Fast ⚡️";
-      paceZone.className = "status too-fast";
-    } else {
-      paceZone.textContent = "On Target 🎯";
-      paceZone.className = "status on-pace";
+  // ---------- YouTube ----------
+  let player = null, ytReady = false;
+  window.onYouTubeIframeAPIReady = () => {
+    player = new YT.Player('player', {
+      height: '220', width: '100%',
+      playerVars: { autoplay: 0, controls: 1 },
+      events: { onReady: () => { ytReady = true; boot(); } }
+    });
+  };
+  function setVol(n){ n=Math.max(0, Math.min(100, Math.round(n))); if(player&&ytReady){ player.setVolume(n); $('volNow').textContent = `${n}%`; } }
+  async function rampVol(from,to,step=5,stepMs=160){
+    from=Math.round(from); to=Math.round(to);
+    if(from===to){ setVol(to); return; }
+    const dir = to>from ? +1 : -1;
+    for(let v=from+dir*step; (dir>0)? v<to : v>to; v+=dir*step){
+      setVol(v);
+      await new Promise(r=>setTimeout(r,stepMs));
     }
+    setVol(to);
+  }
 
-    // Volume UI
-    volumeIndicator.textContent = `Music Volume: ${data.adjustedVolume}%`;
+  // ---------- main ----------
+  function boot(){
+    const cfg = getParams();
+    const GOAL_SEC = parsePace(cfg.pace);
+    const GOAL_MI  = Math.max(0.25, cfg.dist || 1.0);
+    const GOAL_METERS = GOAL_MI * 1609.344;
+    const GOAL_TOTAL_TIME = GOAL_SEC * GOAL_MI;
+    const TOL = cfg.range;
+    const BASE = cfg.baseVol|0;
+    const DOWN_FAST = 25, DOWN_SLOW = 15; // both out-of-range lower volume
+    const COOLDOWN_SEC = 8, GRACE_SEC = 25;
 
-    // Optional: adjust YouTube volume via Player API
-    if (window.player) {
-      player.setVolume(data.adjustedVolume);
+    $('goalPace').textContent = fmt(GOAL_SEC);
+    $('tolShow').textContent = `${TOL}s`;
+
+    // load playlist if provided
+    const pl = playlistId(cfg.youtube);
+    if(pl) player.cuePlaylist({ listType: 'playlist', list: pl, index: 0 });
+
+    // unlock audio with a gesture
+    document.body.addEventListener('click', function once(){
+      try{ player.playVideo(); player.pauseVideo(); }catch{}
+      setVol(BASE);
+      document.body.removeEventListener('click', once);
+    }, { once:true });
+
+    // controls
+    $('btnPlay').onclick = () => { if(ytReady) player.playVideo(); };
+    $('btnPause').onclick = () => { if(ytReady) player.pauseVideo(); };
+
+    // live state
+    const ema = new EMA(0.30);
+    let totalSec = 0, totalMeters = 0, finished = false;
+    let lastFix = null, lastZone = 'IN_RANGE', lastActionAt = 0, currentVol = BASE;
+
+    function setStatus(zone){
+      const el = $('paceZone');
+      if(zone === 'TOO_FAST'){ el.className = 'status too-fast'; el.textContent = 'Too Fast ⚡️'; }
+      else if(zone === 'TOO_SLOW'){ el.className = 'status too-slow'; el.textContent = 'Too Slow 🐢'; }
+      else { el.className = 'status on-pace'; el.textContent = 'On Target 🎯'; }
     }
+    function setBar(p){ $('bar').style.width = `${Math.max(0, Math.min(100, Math.round(p*100)))}%`; }
+
+    // GPS
+    const watchId = navigator.geolocation.watchPosition(pos => {
+      const { latitude, longitude, accuracy } = pos.coords;
+      $('acc').textContent = (accuracy!=null) ? `${Math.round(accuracy)} m` : '—';
+      // outdoor-only: ignore poor fixes
+      if(accuracy && accuracy > 25) return;
+
+      const ts = pos.timestamp;
+      if(!lastFix){ lastFix = { latitude, longitude, ts }; return; }
+
+      const dt = Math.max(0.2, Math.min(5, (ts - lastFix.ts)/1000));
+      const d  = haversine(lastFix.latitude, lastFix.longitude, latitude, longitude);
+      lastFix = { latitude, longitude, ts };
+
+      const speed = d / dt;              // m/s
+      totalSec   += dt;
+      totalMeters+= speed * dt;
+
+      // pace (sec/mi), smoothed
+      const paceSec = (speed <= 0.01) ? 1e9 : (1609.344 / speed);
+      const smoothed = ema.update(paceSec);
+
+      // dynamic catch-up target
+      const remD = Math.max(0, GOAL_METERS - totalMeters);
+      const remT = Math.max(0, GOAL_TOTAL_TIME - totalSec);
+      let need;
+      if(remD > 5 && remT > 0){
+        need = (remT / remD) * 1609.344;
+        need = Math.max(4*60, Math.min(20*60, need));
+      } else { need = smoothed; }
+
+      // UI
+      $('currentPace').textContent = fmt(smoothed);
+      $('needPace').textContent    = fmt(need);
+
+      const zone = decideZone(smoothed, need, TOL);
+      setStatus(zone);
+
+      const closeness = Math.max(0, 1 - Math.abs(smoothed - need) / (TOL * 3));
+      setBar(closeness);
+
+      // grace + cooldown
+      if(totalSec < GRACE_SEC){ lastZone = zone; return; }
+      if(Date.now() - lastActionAt < COOLDOWN_SEC * 1000) return;
+
+      const volFast = Math.max(0, BASE - DOWN_FAST);
+      const volSlow = Math.max(0, BASE - DOWN_SLOW);
+      if(zone !== lastZone){
+        if(zone === 'TOO_FAST'){ rampVol(currentVol, volFast); currentVol = volFast; lastActionAt = Date.now(); }
+        else if(zone === 'TOO_SLOW'){ rampVol(currentVol, volSlow); currentVol = volSlow; lastActionAt = Date.now(); }
+        else { rampVol(currentVol, BASE); currentVol = BASE; lastActionAt = Date.now(); }
+        lastZone = zone;
+      }
+
+      // finish
+      if(!finished && totalMeters >= GOAL_METERS){
+        finished = true;
+        rampVol(currentVol, BASE);
+        try{ player.playVideo(); }catch{}
+        navigator.geolocation.clearWatch(watchId);
+      }
+    }, err => {
+      alert('Location error: ' + err.message + '\nEnable GPS and try again.');
+    }, { enableHighAccuracy: true, maximumAge: 1000, timeout: 10000 });
   }
-
-  // Fetch pace data from backend and update UI
-  async function fetchPace() {
-    try {
-      const response = await fetch("/pace");
-      if (!response.ok) throw new Error("Network response not ok");
-      const data = await response.json();
-      updateUI(data);
-    } catch (error) {
-      console.error("Error fetching pace data:", error);
-      document.getElementById("paceZone").textContent = "Error fetching data";
-    }
-  }
-
-  // Load YouTube Iframe API
-  let player;
-  function onYouTubeIframeAPIReady() {
-    player = new YT.Player('ytPlayer');
-  }
-
-  // Load the API script
-  const tag = document.createElement('script');
-  tag.src = "https://www.youtube.com/iframe_api";
-  document.body.appendChild(tag);
-
-  // Start polling every 2 seconds
-  setInterval(fetchPace, 2000);
-  fetchPace();
 </script>
-
 </body>
 </html>
+

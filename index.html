@@ -1,49 +1,74 @@
-<<<<<<< HEAD
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pace Tracker</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Pace Tracker</title>
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    body{font-family:system-ui,Segoe UI,Roboto,Arial;margin:0}
+    header,footer{padding:16px}
+    main{max-width:720px;margin:24px auto;padding:0 16px}
+    .field{margin:12px 0}
+    label{display:block;margin-bottom:6px;color:#666}
+    input[type=text],input[type=number]{width:100%;padding:10px;border:1px solid #ccc;border-radius:8px}
+    input[type=range]{width:100%}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:16px}
+    .btn{padding:10px 14px;border-radius:10px;border:1px solid #333;background:#111;color:#fff;cursor:pointer}
+    .btn.primary{background:#22c55e;border-color:#16a34a;color:#072}
+    .error{color:#c00;margin-top:10px}
+    .volume-display{display:flex;align-items:center;gap:12px;margin-top:6px}
+  </style>
 </head>
 <body>
-    <header>
-        <h1>Welcome to Pace Tracker</h1>
-    </header>
+  <header><h1>Welcome to Pace Tracker</h1></header>
 
-    <main>
-        <label for="pace">Enter your goal mile pace in minutes: </label>
-        <input type="text" id="pace" name="pace" placeholder="(e.g. 7:30)">
-
-        <br>
-
-        <label for="range">Enter your pace range in seconds: </label>
-        <input type="text" id="range" name="range" min="10" placeholder="(e.g. 30)">
-
-        <br>
-
-        <label for="youtube">Enter your YouTube link: </label>
-        <input type="text" id="youtube" name="youtube">
-
-        <br>
-        <label for="volume">Select your base volume: </label>
-        <input type="range" id="volume" name="volume" min="1" max="100" value="100">
-        <div class="volume-display">
-            <span>Volume: <span id="volumeValue">100</span>%</span>
-            <button type="button" onclick="testVolume()">Test Volume</button>
+  <main>
+    <form id="paceForm" novalidate>
+      <div class="row">
+        <div class="field">
+          <label for="pace">Goal mile pace (mm:ss)</label>
+          <input type="text" id="pace" placeholder="e.g., 10:00" value="10:00" />
         </div>
+        <div class="field">
+          <label for="distance">Goal distance (miles)</label>
+          <input type="number" id="distance" min="0.25" step="0.25" value="1.00" />
+        </div>
+      </div>
 
-        <button type="submit" onclick="window.location.href='run.html'">Start Run</button>
+      <div class="row">
+        <div class="field">
+          <label for="range">Pace window (± seconds)</label>
+          <input type="number" id="range" min="5" max="30" value="10" />
+        </div>
+        <div class="field">
+          <label for="youtube">YouTube playlist link or ID</label>
+          <input type="text" id="youtube" placeholder="https://www.youtube.com/playlist?list=..." />
+        </div>
+      </div>
 
-    </main>
+      <div class="field">
+        <label for="volume">Base volume</label>
+        <input type="range" id="volume" min="0" max="100" value="60" />
+        <div class="volume-display">
+          <span>Volume: <span id="volumeValue">60</span>%</span>
+          <button type="button" class="btn" id="btnBeep">Test Volume (beep)</button>
+        </div>
+      </div>
 
-    <footer>
-        <p>&copy; 2025 Pace Tracker</p>
-    </footer>
+      <div class="actions">
+        <button type="submit" class="btn primary">Start Run</button>
+      </div>
 
-    <script>
-        const form = document.getElementById("paceForm");
+      <div id="errorMsg" class="error" role="alert"></div>
+    </form>
+  </main>
+
+  <footer><p>© 2025 Pace Tracker</p></footer>
+
+  <script>
+    const form = document.getElementById("paceForm");
     const errorMsg = document.getElementById("errorMsg");
     const volumeSlider = document.getElementById("volume");
     const volumeValue = document.getElementById("volumeValue");
@@ -52,51 +77,41 @@
       volumeValue.textContent = volumeSlider.value;
     });
 
+    // Beep test (so users can pick a comfy base volume)
+    document.getElementById("btnBeep").onclick = () => {
+      const vol = Number(volumeSlider.value) / 100;
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = 440;
+      gain.gain.value = vol;
+      osc.connect(gain).connect(ctx.destination);
+      osc.start();
+      setTimeout(()=>{ osc.stop(); ctx.close(); }, 500);
+    };
+
     form.addEventListener("submit", (e) => {
       e.preventDefault();
       errorMsg.textContent = "";
 
       const pace = document.getElementById("pace").value.trim();
-      const range = parseInt(document.getElementById("range").value.trim());
+      const dist = parseFloat(document.getElementById("distance").value);
+      const range = parseInt(document.getElementById("range").value, 10);
       const youtube = document.getElementById("youtube").value.trim();
+      const baseVol = parseInt(volumeSlider.value, 10);
 
-      // Validate pace (format: mm:ss)
       const paceRegex = /^\d{1,2}:\d{2}$/;
-      if (!paceRegex.test(pace)) {
-        errorMsg.textContent = "Pace must be in format mm:ss (e.g., 7:30).";
-        return;
-      }
+      if (!paceRegex.test(pace)) { errorMsg.textContent = "Pace must be mm:ss (e.g., 10:00)."; return; }
+      if (!isFinite(dist) || dist < 0.25) { errorMsg.textContent = "Distance must be ≥ 0.25 miles."; return; }
+      if (!isFinite(range) || range < 5) { errorMsg.textContent = "Window must be ≥ 5 seconds."; return; }
 
-      // Validate range
-      if (isNaN(range) || range < 10) {
-        errorMsg.textContent = "Pace range must be a number of at least 10 seconds.";
-        return;
-      }
-
-      // Simulate start
-      alert(`✅ Starting run with:\n• Pace: ${pace}\n• Range: ±${range}s\n• Volume: ${volumeSlider.value}%\n• Playlist: ${youtube}`);
-      
-      // You can now send this data to your backend or store for further use
+      // Pass settings to run.html via query params
+      const q = new URLSearchParams({
+        pace, dist, range, youtube, baseVol
+      }).toString();
+      window.location.href = `run.html?${q}`;
     });
-
-    function testVolume() {
-      const volume = volumeSlider.value;
-      const context = new (window.AudioContext || window.webkitAudioContext)();
-      const oscillator = context.createOscillator();
-      const gainNode = context.createGain();
-
-      oscillator.type = "sine";
-      oscillator.frequency.setValueAtTime(440, context.currentTime); // A4 tone
-      gainNode.gain.setValueAtTime(volume / 100, context.currentTime);
-
-      oscillator.connect(gainNode);
-      gainNode.connect(context.destination);
-
-      oscillator.start();
-      setTimeout(() => oscillator.stop(), 1000); // 1s beep
-    }
-    </script>
+  </script>
 </body>
 </html>
-=======
->>>>>>> 0d49289ea4bcd2d9155b038d795985ffd89b4a53
