@@ -10,11 +10,90 @@
     <header>
         <h1>Welcome to Pace Tracker</h1>
     </header>
+
     <main>
-        <p>Your content goes here.</p>
+        <label for="pace">Enter your goal mile pace in minutes: </label>
+        <input type="text" id="pace" name="pace" placeholder="(e.g. 7:30)">
+
+        <br>
+
+        <label for="range">Enter your pace range in seconds: </label>
+        <input type="text" id="range" name="range" min="10" placeholder="(e.g. 30)">
+
+        <br>
+
+        <label for="youtube">Enter your YouTube link: </label>
+        <input type="text" id="youtube" name="youtube">
+
+        <br>
+        <label for="volume">Select your base volume: </label>
+        <input type="range" id="volume" name="volume" min="1" max="100" value="100">
+        <div class="volume-display">
+            <span>Volume: <span id="volumeValue">100</span>%</span>
+            <button type="button" onclick="testVolume()">Test Volume</button>
+        </div>
+
+        <button type="submit" onclick="window.location.href='run.html'">Start Run</button>
+
     </main>
+
     <footer>
-        <p>&copy; 2023 Pace Tracker</p>
+        <p>&copy; 2025 Pace Tracker</p>
     </footer>
+
+    <script>
+        const form = document.getElementById("paceForm");
+    const errorMsg = document.getElementById("errorMsg");
+    const volumeSlider = document.getElementById("volume");
+    const volumeValue = document.getElementById("volumeValue");
+
+    volumeSlider.addEventListener("input", () => {
+      volumeValue.textContent = volumeSlider.value;
+    });
+
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      errorMsg.textContent = "";
+
+      const pace = document.getElementById("pace").value.trim();
+      const range = parseInt(document.getElementById("range").value.trim());
+      const youtube = document.getElementById("youtube").value.trim();
+
+      // Validate pace (format: mm:ss)
+      const paceRegex = /^\d{1,2}:\d{2}$/;
+      if (!paceRegex.test(pace)) {
+        errorMsg.textContent = "Pace must be in format mm:ss (e.g., 7:30).";
+        return;
+      }
+
+      // Validate range
+      if (isNaN(range) || range < 10) {
+        errorMsg.textContent = "Pace range must be a number of at least 10 seconds.";
+        return;
+      }
+
+      // Simulate start
+      alert(`✅ Starting run with:\n• Pace: ${pace}\n• Range: ±${range}s\n• Volume: ${volumeSlider.value}%\n• Playlist: ${youtube}`);
+      
+      // You can now send this data to your backend or store for further use
+    });
+
+    function testVolume() {
+      const volume = volumeSlider.value;
+      const context = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = context.createOscillator();
+      const gainNode = context.createGain();
+
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(440, context.currentTime); // A4 tone
+      gainNode.gain.setValueAtTime(volume / 100, context.currentTime);
+
+      oscillator.connect(gainNode);
+      gainNode.connect(context.destination);
+
+      oscillator.start();
+      setTimeout(() => oscillator.stop(), 1000); // 1s beep
+    }
+    </script>
 </body>
 </html>

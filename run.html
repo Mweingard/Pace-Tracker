@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pace Tracker – Live Run</title>
+  <style>
+    body {
+      font-family: "Segoe UI", sans-serif;
+      margin: 2rem;
+      background-color: #f8f8f8;
+      color: #333;
+    }
+
+    header, footer {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    main {
+      max-width: 600px;
+      margin: auto;
+      background: #fff;
+      padding: 2rem;
+      border-radius: 10px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.1);
+    }
+
+    h2 {
+      text-align: center;
+      margin-bottom: 1rem;
+    }
+
+    .status {
+      text-align: center;
+      padding: 1rem;
+      font-size: 1.4rem;
+      font-weight: bold;
+      border-radius: 6px;
+      margin-bottom: 1.5rem;
+    }
+
+    .status.on-pace {
+      background-color: #e0f7e9;
+      color: #2e7d32;
+    }
+
+    .status.too-slow {
+      background-color: #fff3cd;
+      color: #d18b00;
+    }
+
+    .status.too-fast {
+      background-color: #ffebee;
+      color: #c62828;
+    }
+
+    .metrics {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+    }
+
+    .metrics div {
+      text-align: center;
+      flex: 1;
+    }
+
+    iframe {
+      width: 100%;
+      height: 200px;
+      margin-top: 2rem;
+      border: none;
+      border-radius: 8px;
+    }
+
+    #volumeIndicator {
+      margin-top: 1rem;
+      text-align: center;
+      font-size: 1rem;
+      opacity: 0.6;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🏃‍♀️ Live Pace Tracker</h1>
+</header>
+
+<main>
+  <h2>Stay On Pace!</h2>
+
+  <div id="paceZone" class="status on-pace">Loading pace...</div>
+
+  <div class="metrics">
+    <div>
+      <strong>Goal Pace</strong>
+      <div id="goalPace">–</div>
+    </div>
+    <div>
+      <strong>Current Pace</strong>
+      <div id="currentPace">–</div>
+    </div>
+    <div>
+      <strong>Target Adjustment</strong>
+      <div id="adjustedPace">–</div>
+    </div>
+  </div>
+
+  <div id="volumeIndicator">Music Volume: –</div>
+
+  <iframe
+    id="ytPlayer"
+    src="https://www.youtube.com/embed/videoseries?list=YOUR_PLAYLIST_ID&enablejsapi=1"
+    allow="autoplay"
+    allowfullscreen
+  ></iframe>
+</main>
+
+<footer>
+  <p>&copy; 2025 Pace Tracker</p>
+</footer>
+
+<script>
+  // Helper: format seconds as m:ss
+  function secToMinStr(sec) {
+    const m = Math.floor(sec / 60);
+    const s = Math.round(sec % 60);
+    return `${m}:${s.toString().padStart(2, "0")}`;
+  }
+
+  // Update UI elements with backend data
+  function updateUI(data) {
+    const paceZone = document.getElementById("paceZone");
+    const currentPace = document.getElementById("currentPace");
+    const adjustedPace = document.getElementById("adjustedPace");
+    const goalPace = document.getElementById("goalPace");
+    const volumeIndicator = document.getElementById("volumeIndicator");
+
+    goalPace.textContent = secToMinStr(data.goalPaceSec);
+    currentPace.textContent = secToMinStr(data.currentPaceSec);
+    adjustedPace.textContent = secToMinStr(data.adjustedPaceSec);
+
+    // Pace status UI
+    if (data.paceStatus === "too-slow") {
+      paceZone.textContent = "Too Slow 🐢";
+      paceZone.className = "status too-slow";
+    } else if (data.paceStatus === "too-fast") {
+      paceZone.textContent = "Too Fast ⚡️";
+      paceZone.className = "status too-fast";
+    } else {
+      paceZone.textContent = "On Target 🎯";
+      paceZone.className = "status on-pace";
+    }
+
+    // Volume UI
+    volumeIndicator.textContent = `Music Volume: ${data.adjustedVolume}%`;
+
+    // Optional: adjust YouTube volume via Player API
+    if (window.player) {
+      player.setVolume(data.adjustedVolume);
+    }
+  }
+
+  // Fetch pace data from backend and update UI
+  async function fetchPace() {
+    try {
+      const response = await fetch("/pace");
+      if (!response.ok) throw new Error("Network response not ok");
+      const data = await response.json();
+      updateUI(data);
+    } catch (error) {
+      console.error("Error fetching pace data:", error);
+      document.getElementById("paceZone").textContent = "Error fetching data";
+    }
+  }
+
+  // Load YouTube Iframe API
+  let player;
+  function onYouTubeIframeAPIReady() {
+    player = new YT.Player('ytPlayer');
+  }
+
+  // Load the API script
+  const tag = document.createElement('script');
+  tag.src = "https://www.youtube.com/iframe_api";
+  document.body.appendChild(tag);
+
+  // Start polling every 2 seconds
+  setInterval(fetchPace, 2000);
+  fetchPace();
+</script>
+
+</body>
+</html>
